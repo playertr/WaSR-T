@@ -9,3 +9,6 @@ venv/
 # Project specific
 /output/
 /sequence_images/
+
+# Weights
+*.pth
