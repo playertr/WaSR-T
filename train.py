@@ -202,8 +202,8 @@ def train_wasrt(args):
         wandb_logger = pl_loggers.WandbLogger(version_name, args.output_dir, project='WaSR', log_model=False)
         loggers.append(wandb_logger)
 
-    logger = MainLoggerCollection(loggers)
-    logger.log_hyperparams(args)
+    # logger = MainLoggerCollection(loggers)
+    # logger.log_hyperparams(args)
 
     callbacks = []
     if args.validation:

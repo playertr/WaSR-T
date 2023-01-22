@@ -118,27 +118,27 @@ class IntermediateLayerGetter(nn.ModuleDict):
                 out[out_name] = x
         return out
 
-class MainLoggerCollection(pl_loggers.LoggerCollection):
-    """
-    Collection of loggers with a main logger (first in sequence)
+# class MainLoggerCollection(pl_loggers.LoggerCollection):
+#     """
+#     Collection of loggers with a main logger (first in sequence)
 
-    Args:
-        logger_iterable: An iterable collection of loggers, first logger in sequence is the main
-    """
+#     Args:
+#         logger_iterable: An iterable collection of loggers, first logger in sequence is the main
+#     """
 
 
-    @property
-    def main_logger(self) -> pl_loggers.LightningLoggerBase:
-        return next(iter(self._logger_iterable))
+#     @property
+#     def main_logger(self) -> pl_loggers.LightningLoggerBase:
+#         return next(iter(self._logger_iterable))
 
-    @property
-    def save_dir(self) -> Optional[str]:
-        return self.main_logger.save_dir
+#     @property
+#     def save_dir(self) -> Optional[str]:
+#         return self.main_logger.save_dir
 
-    @property
-    def name(self) -> str:
-        return self.main_logger.name
+#     @property
+#     def name(self) -> str:
+#         return self.main_logger.name
 
-    @property
-    def version(self) -> str:
-        return self.main_logger.version
+#     @property
+#     def version(self) -> str:
+#         return self.main_logger.version
