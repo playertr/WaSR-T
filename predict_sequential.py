@@ -4,6 +4,7 @@ import numpy as np
 from PIL import Image
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
+import torch
 
 from wasr_t.data.folder import FolderDataset
 from wasr_t.data.transforms import PytorchHubNormalization
@@ -76,11 +77,17 @@ def run_inference(args):
     state_dict = load_weights(args.weights)
     model.load_state_dict(state_dict)
     model = model.sequential() # Enable sequential mode
+    # model = model.unrolled()
+
+    model.eval()
+    
+    model = torch.compile(model, mode="max-autotune")
 
     predictor = Predictor(model, half_precision=args.fp16)
     output_dir = Path(args.output_dir)
 
-    predict_sequence(predictor, args.sequence_dir, output_dir)
+    with torch.inference_mode():
+        predict_sequence(predictor, args.sequence_dir, output_dir)
 
 def main():
     args = get_arguments()
