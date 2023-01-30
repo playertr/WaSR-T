@@ -21,6 +21,7 @@ SEGMENTATION_COLORS = np.array([
 
 OUTPUT_DIR = 'output/predictions'
 HIST_LEN = 5
+RESIZE = (512,384)
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -37,6 +38,8 @@ def get_arguments():
                         help="Model weights file.")
     parser.add_argument("--output-dir", type=str, default=OUTPUT_DIR,
                         help="Directory where the predictions will be stored.")
+    parser.add_argument("--resize", type=Option(int), default=RESIZE, nargs='+',
+                        help="Resize input images to a specified size. Use `none` for no resizing.")
     parser.add_argument("--fp16", action='store_true',
                         help="Use half precision for inference.")
     parser.add_argument("--gpus", default=-1,
@@ -59,11 +62,11 @@ def export_predictions(probs, batch, output_dir):
 
         mask_img.save(str(out_path))
 
-def predict_sequence(predictor, sequence_dir, output_dir):
+def predict_sequence(predictor, sequence_dir, output_dir, size):
     """Runs inference on a sequence of images. The frames are processed sequentially (stateful). The state is cleared at the start of the sequence."""
     predictor.model.clear_state()
 
-    dataset = FolderDataset(sequence_dir, normalize_t=PytorchHubNormalization())
+    dataset = FolderDataset(sequence_dir, normalize_t=PytorchHubNormalization(), resize=size)
     dl = DataLoader(dataset, batch_size=1, num_workers=1) # NOTE: Batch size must be 1 in sequential mode.
 
     for batch in tqdm(dl, desc='Processing frames'):
@@ -86,8 +89,13 @@ def run_inference(args):
     predictor = Predictor(model, half_precision=args.fp16)
     output_dir = Path(args.output_dir)
 
+
+        size = None
+    if args.resize[0] is not None:
+        size = args.resize
+
     with torch.inference_mode():
-        predict_sequence(predictor, args.sequence_dir, output_dir)
+        predict_sequence(predictor, args.sequence_dir, output_dir, size=size)
 
 def main():
     args = get_arguments()
