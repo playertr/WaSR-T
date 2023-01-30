@@ -9,9 +9,9 @@ import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
-from wasr_t.wasr_t import wasr_temporal_resnet101
+from wasr_t.wasr_t import wasr_temporal_resnet101, wasr_temporal_mobilenetv3
 from wasr_t.train import LitModel
-from wasr_t.utils import MainLoggerCollection, Option
+from wasr_t.utils import Option
 from wasr_t.callbacks import ModelExport
 from wasr_t.data.mastr import MaSTr1325Dataset
 from wasr_t.data.transforms import get_augmentation_transform, PytorchHubNormalization
@@ -21,7 +21,7 @@ from wasr_t.data.sampling import DatasetRandomSampler, DistributedSamplerWrapper
 # Enable/disable WANDB logging
 WANDB_LOGGING = False
 
-DEVICE_BATCH_SIZE = 3
+DEVICE_BATCH_SIZE = 1
 TRAIN_CONFIG = 'configs/mastr1325_train.yaml'
 VAL_CONFIG = 'configs/mastr1325_val.yaml'
 NUM_CLASSES = 3
@@ -155,9 +155,15 @@ class DataModule(pl.LightningDataModule):
                 b_sampler = DistributedSamplerWrapper(sampler)
 
         if b_sampler is None:
-            sampler = DistributedSampler(train_ds, shuffle=True)
-            train_dl = DataLoader(train_ds, batch_size=self.args.batch_size, sampler=sampler,
-                                  num_workers=self.args.workers, drop_last=True)
+            if self.trainer.num_devices > 1:
+                sampler = DistributedSampler(train_ds, shuffle=True)
+                train_dl = DataLoader(train_ds, batch_size=self.args.batch_size, 
+                    sampler=sampler,
+                    num_workers=self.args.workers, drop_last=True)
+            else:
+                train_dl = DataLoader(train_ds, batch_size=self.args.batch_size, 
+                    shuffle=True,
+                    num_workers=self.args.workers, drop_last=True)
         else:
             train_dl = DataLoader(train_ds, batch_sampler=b_sampler, num_workers=self.args.workers)
 
@@ -180,7 +186,8 @@ def train_wasrt(args):
     data = DataModule(args, normalize_t)
 
     # Get model
-    model = wasr_temporal_resnet101(num_classes=args.num_classes, pretrained=args.pretrained, hist_len=args.hist_len, backbone_grad_steps=args.backbone_grad_steps)
+    # model = wasr_temporal_resnet101(num_classes=args.num_classes, pretrained=args.pretrained, hist_len=args.hist_len, backbone_grad_steps=args.backbone_grad_steps)
+    model = wasr_temporal_mobilenetv3(num_classes=args.num_classes, pretrained=args.pretrained, hist_len=args.hist_len, backbone_grad_steps=args.backbone_grad_steps, sequential=False)
 
     if args.pretrained_weights is not None:
         print(f"Loading weights from: {args.pretrained_weights}")
@@ -202,8 +209,8 @@ def train_wasrt(args):
         wandb_logger = pl_loggers.WandbLogger(version_name, args.output_dir, project='WaSR', log_model=False)
         loggers.append(wandb_logger)
 
-    # logger = MainLoggerCollection(loggers)
-    # logger.log_hyperparams(args)
+    logger = loggers
+    logger[0].log_hyperparams(args)
 
     callbacks = []
     if args.validation:
@@ -218,7 +225,7 @@ def train_wasrt(args):
                          gpus=args.gpus,
                          num_nodes=args.num_nodes,
                          max_epochs=args.epochs,
-                         accelerator='ddp',
+                         accelerator='cuda',
                          resume_from_checkpoint=args.resume_from,
                          callbacks=callbacks,
                          sync_batchnorm=True,

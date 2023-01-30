@@ -5,14 +5,71 @@ import contextlib
 import torch
 from torch import nn
 from torchvision.models.resnet import resnet101
+from torchvision.models.mobilenetv3 import mobilenet_v3_large
 from torch.hub import load_state_dict_from_url
 
 from wasr_t.utils import IntermediateLayerGetter
 import wasr_t.layers as L
 
 model_urls = {
-    'deeplabv3_resnet101_coco': 'https://download.pytorch.org/models/deeplabv3_resnet101_coco-586e9e4e.pth'
+    'deeplabv3_resnet101_coco': 'https://download.pytorch.org/models/deeplabv3_resnet101_coco-586e9e4e.pth',
+    'deeplabv3_mobilenet_v3_large_coco': 'https://download.pytorch.org/models/deeplabv3_mobilenet_v3_large-fc3c493d.pth'
 }
+
+def wasr_temporal_mobilenetv3(num_classes=3, pretrained=True, sequential=False, backbone_grad_steps=2, hist_len=5):
+    # Pretrained mobilenetv3 backbone
+    backbone = mobilenet_v3_large(pretrained=True)
+
+    # From https://github.com/pytorch/vision/blob/main/torchvision/models/segmentation/deeplabv3.py
+    # Gather the indices of blocks which are strided. These are the locations of C1, ..., Cn-1 blocks.
+    # The first and last blocks are always included because they are the C0 (conv1) and Cn.
+    backbone = backbone.features
+    stage_indices = [0] + [i for i, b in enumerate(backbone) if getattr(b, "_is_cn", False)] + [len(backbone) - 1]
+    out_pos = stage_indices[-1]  # use C5 which has output_stride = 16
+    out_inplanes = backbone[out_pos].out_channels
+
+    skip1_pos = stage_indices[-2]
+
+
+    skip2_pos = stage_indices[-3]
+
+    aux_pos = stage_indices[-4]  # use C2 here which has output_stride = 8
+    aux_inplanes = backbone[aux_pos].out_channels
+
+    return_layers = {
+        str(out_pos): "out",
+        str(skip1_pos): "skip1",
+        str(skip2_pos): "skip2",
+        str(aux_pos): "aux"
+    }
+    return_layers[str(aux_pos)] = "aux"
+
+    backbone = IntermediateLayerGetter(backbone, return_layers=return_layers)
+
+    # return_layers = {
+    #     '4': 'out',
+    #     '1': 'skip1',
+    #     '2': 'skip2',
+    #     '3': 'aux'
+    # }
+    # backbone = IntermediateLayerGetter(backbone, return_layers=return_layers)
+
+    decoder = WaSRTDecoder(num_classes, hist_len=hist_len, sequential=sequential)
+
+    model = WaSRT(backbone, decoder, backbone_grad_steps=backbone_grad_steps, sequential=sequential)
+
+    # Load pretrained DeeplabV3 weights (COCO)
+    if pretrained:
+        model_url = model_urls['deeplabv3_mobilenet_v3_large_coco']
+        state_dict = load_state_dict_from_url(model_url, progress=True)
+
+        # Only load backbone weights, since decoder is entirely different
+        keys_to_remove = [key for key in state_dict.keys() if not key.startswith('backbone.')]
+        for key in keys_to_remove: del state_dict[key]
+
+        model.load_state_dict(state_dict, strict=False)
+
+    return model
 
 def wasr_temporal_resnet101(num_classes=3, pretrained=True, sequential=False, backbone_grad_steps=2, hist_len=5):
     # Pretrained ResNet101 backbone
@@ -74,6 +131,18 @@ class WaSRT(nn.Module):
     def forward_unrolled(self, x):
         features = self.backbone(x['image'])
 
+        # [(key, val.shape) for key, val in features.items()]
+        # [('skip1', torch.Size([2, 256, 96, 128])), 
+        # ('skip2', torch.Size([2, 512, 48, 64])), 
+        # ('aux', torch.Size([2, 1024, 48, 64])), 
+        # ('out', torch.Size([2, 2048, 48, 64]))]
+        
+        
+        # ('skip1', torch.Size([2, 160, 12, 16])), 
+        # ('skip2', torch.Size([2, 80, 24, 32])), 
+        # [('aux', torch.Size([2, 40, 48, 64])), 
+        # ('out', torch.Size([2, 960, 12, 16]))]
+
         extract_feats = ['out','skip1','skip2']
         feats_hist = {f:[] for f in extract_feats}
         hist_len = x['hist_images'].shape[1]
@@ -126,16 +195,16 @@ class WaSRTDecoder(nn.Module):
     def __init__(self, num_classes, hist_len=5, sequential=False):
         super(WaSRTDecoder, self).__init__()
 
-        self.arm1 = L.AttentionRefinementModule(2048)
+        self.arm1 = L.AttentionRefinementModule(960)
         self.arm2 = nn.Sequential(
-            L.AttentionRefinementModule(512, last_arm=True),
-            nn.Conv2d(512, 2048, 1) # Equalize number of features with ARM1
+            L.AttentionRefinementModule(80, last_arm=True),
+            nn.Conv2d(80, 960, 1, 2) # Equalize number of features with ARM1
         )
 
         # Temporal Context Module
-        self.tcm = L.TemporalContextModule(2048, hist_len=hist_len, sequential=sequential)
+        self.tcm = L.TemporalContextModule(960, hist_len=hist_len, sequential=sequential)
 
-        self.ffm = L.FeatureFusionModule(256, 2048, 1024)
+        self.ffm = L.FeatureFusionModule(160, 960, 1024)
         self.aspp = L.ASPPv2(1024, [6, 12, 18, 24], num_classes)
 
     def forward(self, x, x_hist=None):

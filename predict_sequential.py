@@ -9,7 +9,7 @@ import torch
 from wasr_t.data.folder import FolderDataset
 from wasr_t.data.transforms import PytorchHubNormalization
 from wasr_t.inference import Predictor
-from wasr_t.wasr_t import wasr_temporal_resnet101
+from wasr_t.wasr_t import wasr_temporal_resnet101, wasr_temporal_mobilenetv3
 from wasr_t.utils import load_weights
 
 # Colors corresponding to each segmentation class
@@ -73,7 +73,7 @@ def predict_sequence(predictor, sequence_dir, output_dir):
 
 
 def run_inference(args):
-    model = wasr_temporal_resnet101(pretrained=False, hist_len=args.hist_len)
+    model = wasr_temporal_mobilenetv3(pretrained=False, hist_len=args.hist_len)
     state_dict = load_weights(args.weights)
     model.load_state_dict(state_dict)
     model = model.sequential() # Enable sequential mode
@@ -81,7 +81,7 @@ def run_inference(args):
 
     model.eval()
     
-    model = torch.compile(model, mode="max-autotune")
+    # model = torch.compile(model, mode="max-autotune")
 
     predictor = Predictor(model, half_precision=args.fp16)
     output_dir = Path(args.output_dir)
