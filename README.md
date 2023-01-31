@@ -183,7 +183,7 @@ Inference took 1247 MB of VRAM and was 42 FPS on my RTX2060. The output on MaSTr
 
 <p align="center">
     <img src="figures/wasrt_mobilenetv3.gif" alt="MobileNetV3 MaSTr1325 output.">
-    MaSTr1325 output.
+    MobileNetV3 MaSTr1325 output.
 </p>
 
 > **Note**: there might still be performance improvements to be had by retraining with different implementation. For instance, the designation of the `skip1` and `skip2` intermediate variables, and the resulting tensor sizes within the decoder module, might be mistaken.
