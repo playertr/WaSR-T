@@ -178,8 +178,13 @@ You can get the weights here:
 It looks like the network did pretty well, judging by the tensorboard output.
 ![Tensorboard output.](figures/tensorboard.jpg)
 
-Inference took 1247 MB of VRAM and was 42 FPS on my RTX2060. The output on MaSTr1325 is below (it's wild to me that so little training data was used!).
-![MaSTr1325 output.](figures/wasrt_moilenetv3_1478.webm)
+Inference took 1247 MB of VRAM and was 42 FPS on my RTX2060. The output on MaSTr1325 is below (it's wild to me that so little training data was needed! I wonder how well it will generalize to different lighting and weather conditions.).
+![](figures/wasrt_moilenetv3_1478.gif)
+
+<p align="center">
+    <img src="figures/wasrt_mobilenetv3.gif" alt="MobileNetV3 MaSTr1325 output.">
+    MaSTr1325 output.
+</p>
 
 > **Note**: there might still be performance improvements to be had by retraining with different implementation. For instance, the designation of the `skip1` and `skip2` intermediate variables, and the resulting tensor sizes within the decoder module, might be mistaken.
 
