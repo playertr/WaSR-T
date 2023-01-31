@@ -28,10 +28,10 @@ def wasr_temporal_mobilenetv3(num_classes=3, pretrained=True, sequential=False, 
     out_pos = stage_indices[-1]  # use C5 which has output_stride = 16
     out_inplanes = backbone[out_pos].out_channels
 
-    skip1_pos = stage_indices[-2]
+    skip1_pos = stage_indices[-3]
 
 
-    skip2_pos = stage_indices[-3]
+    skip2_pos = stage_indices[-2]
 
     aux_pos = stage_indices[-4]  # use C2 here which has output_stride = 8
     aux_inplanes = backbone[aux_pos].out_channels
@@ -197,14 +197,14 @@ class WaSRTDecoder(nn.Module):
 
         self.arm1 = L.AttentionRefinementModule(960)
         self.arm2 = nn.Sequential(
-            L.AttentionRefinementModule(80, last_arm=True),
-            nn.Conv2d(80, 960, 1, 2) # Equalize number of features with ARM1
+            L.AttentionRefinementModule(160, last_arm=True),
+            nn.Conv2d(160, 960, 1) # Equalize number of features with ARM1
         )
 
         # Temporal Context Module
         self.tcm = L.TemporalContextModule(960, hist_len=hist_len, sequential=sequential)
 
-        self.ffm = L.FeatureFusionModule(160, 960, 1024)
+        self.ffm = L.FeatureFusionModule(80, 960, 1024)
         self.aspp = L.ASPPv2(1024, [6, 12, 18, 24], num_classes)
 
     def forward(self, x, x_hist=None):
