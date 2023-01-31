@@ -10,7 +10,7 @@ from wasr_t.data.folder import FolderDataset
 from wasr_t.data.transforms import PytorchHubNormalization
 from wasr_t.inference import Predictor
 from wasr_t.wasr_t import wasr_temporal_resnet101, wasr_temporal_mobilenetv3
-from wasr_t.utils import load_weights
+from wasr_t.utils import load_weights, Option
 
 # Colors corresponding to each segmentation class
 SEGMENTATION_COLORS = np.array([
@@ -90,7 +90,7 @@ def run_inference(args):
     output_dir = Path(args.output_dir)
 
 
-        size = None
+    size = None
     if args.resize[0] is not None:
         size = args.resize
 
