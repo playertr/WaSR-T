@@ -145,25 +145,19 @@ class DataModule(pl.LightningDataModule):
                 n_samples = int((1/orig_ratio) * len(orig_ds))
                 sampler = DatasetRandomSampler(train_ds, [orig_ratio, sample_ratio], n_samples, shuffle=True)
                 b_sampler = BatchSampler(sampler, bs, drop_last=True)
-                b_sampler = DistributedSamplerWrapper(b_sampler)
+                if self.trainer.num_devices > 1: b_sampler = DistributedSamplerWrapper(b_sampler)
             else:
                 # Fixed number of samples per batch
                 n_samples = int(sample_ratio)
                 # Set number of batches so that all samples from the main dataset are observed
                 n_batches = math.ceil(len(orig_ds) / (bs-n_samples))
                 sampler = DatasetBatchSampler(train_ds, [bs-n_samples, n_samples], shuffle=True, num_batches=n_batches)
-                b_sampler = DistributedSamplerWrapper(sampler)
+                if self.trainer.num_devices > 1: b_sampler = DistributedSamplerWrapper(sampler)
 
         if b_sampler is None:
-            if self.trainer.num_devices > 1:
-                sampler = DistributedSampler(train_ds, shuffle=True)
-                train_dl = DataLoader(train_ds, batch_size=self.args.batch_size, 
-                    sampler=sampler,
-                    num_workers=self.args.workers, drop_last=True)
-            else:
-                train_dl = DataLoader(train_ds, batch_size=self.args.batch_size, 
-                    shuffle=True,
-                    num_workers=self.args.workers, drop_last=True)
+            sampler = DistributedSampler(train_ds, shuffle=True) if self.trainer.num_devices > 1 else None
+            train_dl = DataLoader(train_ds, batch_size=self.args.batch_size, sampler=sampler,
+                                  num_workers=self.args.workers, drop_last=True)
         else:
             train_dl = DataLoader(train_ds, batch_sampler=b_sampler, num_workers=self.args.workers)
 
