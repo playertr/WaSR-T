@@ -67,8 +67,7 @@ def PytorchHubNormalization():
 
     transform = T.Compose([
         T.ToTensor(), # CHW order, divide by 255
-        T.Normalize(mean, std),
-        T.Resize(size=(384,512))
+        T.Normalize(mean, std)
     ])
 
     return transform
