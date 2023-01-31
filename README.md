@@ -158,48 +158,31 @@ If you use this code, please cite our paper:
 
 <a name="ref-mods"></a>[4] Bovcon, B., Muhovič, J., Vranac, D., Mozetič, D., Perš, J., & Kristan, M. (2021). MODS -- A USV-oriented object detection and obstacle segmentation benchmark.
 
+# MobileNetV3
+
+You should use this fork of the repository ([https://github.com/playertr/WaSR-T](https://github.com/playertr/WaSR-T)) for compatibility with the MobileNetV3. I trained a network using an RTX2060 with the command 
+```
+ python train.py --train-config MaSTr1325/mastr1325_train.yaml \
+    --val-config MaSTr1325/mastr1325_val.yaml 
+    --validation \
+    --model-name my_wasr \
+    --batch-size 6 \
+    --epochs 100 \
+    --additional-train-config MaSTr153/mastr153_train.yaml
+```
+Training 27 epochs (starting from the DeepLabs COCO pretraining) took a couple of hours on my RTX 2060.
+
+You can get the weights here:
+[https://drive.google.com/file/d/15PAkvkEovC9tpu24QZ0dEsbnxQx0dVwZ/view?usp=sharing](https://drive.google.com/file/d/15PAkvkEovC9tpu24QZ0dEsbnxQx0dVwZ/view?usp=sharing)
+
+It looks like the network did pretty well, judging by the tensorboard output.
+[Tensorboard output.](figures/tensorboard.jpg)
+
+Inference took 1247 MB of VRAM and was 42 FPS on my RTX2060. The output on MaSTr1325 is below (it's wild to me that so little training data was used!).
+
+
+> **Note**: there might still be performance improvements to be had by retraining with different implementation. For instance, the designation of the `skip1` and `skip2` intermediate variables, and the resulting tensor sizes within the decoder module, might be mistaken.
+
 # Installation on Jetson Nano
 
-Install Mambaforge. It's like Conda, but faster, and Conda was broken on Jetson at the time of writing.
-
-```
-wget https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-aarch64.sh
-chmod +x Mambaforge-Linux-aarch64.sh
-./Miniforge3-Linux-aarch64.sh
-./Mambaforge-Linux-aarch64.sh
-# restart shell
-echo "export MAMBA_NO_BANNER=1" >> ~/.bashrc
-source ~/.bashrc
-```
-
-Create environment with dependencies
-
-```
-mamba create -n sail python=3.10
-mamba activate sail
-mamba install astunparse numpy ninja pyyaml setuptools cmake cffi typing_extensions six requests dataclasses
-```
-
-Follow the directions from [NVIDIA](https://docs.nvidia.com/deeplearning/frameworks/install-pytorch-jetson-platform/index.html) to download Pytorch into your conda environment. You might need to modify the .whl url from the available list shown at https://developer.download.nvidia.cn/compute/redist/jp/v502/pytorch/ .
-
-```
-sudo apt-get -y update
-
-sudo apt-get -y install autoconf bc build-essential g++-8 gcc-8 clang-8 lld-8 gettext-base gfortran-8 iputils-ping libbz2-dev libc++-dev libcgal-dev libffi-dev libfreetype6-dev libhdf5-dev libjpeg-dev liblzma-dev libncurses5-dev libncursesw5-dev libpng-dev libreadline-dev libssl-dev libsqlite3-dev libxml2-dev libxslt-dev locales moreutils openssl python-openssl rsync scons python3-pip libopenblas-dev
-
-export TORCH_INSTALL=https://developer.download.nvidia.cn/compute/redist/jp/v502/pytorch/torch-1.13.0a0+410ce96a.nv22.12-cp38-cp38-linux_aarch64.whl
-
-python3 -m pip install --upgrade pip 
-python3 -m pip install aiohttp numpy==1.19.4 scipy==1.5.3
-export LD_LIBRARY_PATH=/usr/lib/llvm-8/lib:$LD_LIBRARY_PATH
-python3 -m pip install --upgrade protobuf
-python3 -m pip install --no-cache $TORCH_INSTALL
-
-pip install pytorch-lightning tqdm albumentations
-```
-
-Follow instructions at https://github.com/XavierGeerinck/Jetson-Linux-PyTorch.git to cross-compile Pytorch in Docker with the exact version combinations of your Jetson (Get your L4T version from `cat /etc/nv_tegra_release`)
-```
-docker buildx build --platform=linux/arm64 --progress=plain --output type=local,dest=. --build-arg V_CUDA_MAJOR=10 --build-arg V_CUDA_MINOR=2 --build-arg V_L4T_MAJOR=32 --build-arg V_L4T_MINOR=7 --build-arg V_PYTHON_MAJOR=3 --build-arg V_PYTHON_MINOR=10 --build-arg V_PYTORCH=v1.13.0 --build-arg V_PYTORCHVISION=0.14.1 --build-arg V_PYTORCHAUDIO=0.13.1 -f Dockerfile.jetson .
-
-```
+You need PyTorch and the other dependencies (not necessarily the specific listed versions) to run this network. The version of Pytorch that ships with the classic Jetson Nano (on JetPack 4.6) is pretty old, so I used version 1.10 from the pip wheel at this [link](https://qengineering.eu/install-pytorch-on-jetson-nano.html). The latest versions (1.13 or 2.0dev as of this righting) are not easily available for ARM devices.
