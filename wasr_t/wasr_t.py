@@ -41,14 +41,6 @@ def wasr_temporal_mobilenetv3(num_classes=3, pretrained=True, sequential=False, 
 
     backbone = IntermediateLayerGetter(backbone, return_layers=return_layers)
 
-    # return_layers = {
-    #     '4': 'out',
-    #     '1': 'skip1',
-    #     '2': 'skip2',
-    #     '3': 'aux'
-    # }
-    # backbone = IntermediateLayerGetter(backbone, return_layers=return_layers)
-
     decoder = WaSRTDecoder(num_classes, hist_len=hist_len, sequential=sequential)
 
     model = WaSRT(backbone, decoder, backbone_grad_steps=backbone_grad_steps, sequential=sequential)
