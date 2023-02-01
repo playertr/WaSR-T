@@ -83,12 +83,11 @@ def run_inference(args):
     # model = model.unrolled()
 
     model.eval()
-    
+
     # model = torch.compile(model, mode="max-autotune")
 
-    predictor = Predictor(model, half_precision=args.fp16)
+    predictor = Predictor(model, half_precision=args.fp16, device=torch.device('cuda'))
     output_dir = Path(args.output_dir)
-
 
     size = None
     if args.resize[0] is not None:

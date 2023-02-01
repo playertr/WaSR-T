@@ -12,12 +12,15 @@ from .utils import tensor_map
 
 
 class Predictor():
-    def __init__(self, model, half_precision):
+    def __init__(self, model, half_precision, device=None):
         self.model = model
         self.half_precision = half_precision
 
-        use_gpu = torch.cuda.is_available()
-        self.device = torch.device('cuda:0') if use_gpu else torch.device('cpu')
+        if device==None:
+            use_gpu = torch.cuda.is_available()
+            self.device = torch.device('cuda:0') if use_gpu else torch.device('cpu')
+        else:
+            self.device = device
 
         if self.half_precision:
             self.model = self.model.half()
