@@ -77,7 +77,13 @@ def predict_sequence(predictor, sequence_dir, output_dir, size):
 
 def run_inference(args):
     model = wasr_temporal_mobilenetv3(pretrained=False, hist_len=args.hist_len, sequential=True)
+
     state_dict = load_weights(args.weights)
+
+    # if PyTorch 2.0's torch.compile() function generated these weights, then we need to remove
+    # the _orig_mod label from each parameter.
+    state_dict = {key.replace("_orig_mod.", "") : value for key, value in state_dict.items()}
+
     model.load_state_dict(state_dict)
     model = model.sequential() # Enable sequential mode
     # model = model.unrolled()
@@ -86,7 +92,7 @@ def run_inference(args):
 
     # model = torch.compile(model, mode="max-autotune")
 
-    predictor = Predictor(model, half_precision=args.fp16, device=torch.device('cuda'))
+    predictor = Predictor(model, half_precision=args.fp16, device=torch.device('cpu'))
     output_dir = Path(args.output_dir)
 
     size = None
