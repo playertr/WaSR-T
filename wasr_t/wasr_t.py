@@ -21,15 +21,23 @@ def wasr_temporal_mobilenetv3(num_classes=3, pretrained=True, sequential=False, 
     backbone = mobilenet_v3_large(pretrained=True)
 
     # From https://github.com/pytorch/vision/blob/main/torchvision/models/segmentation/deeplabv3.py
-    # Gather the indices of blocks which are strided. These are the locations of C1, ..., Cn-1 blocks.
-    # The first and last blocks are always included because they are the C0 (conv1) and Cn.
     backbone = backbone.features
     stage_indices = [0] + [i for i, b in enumerate(backbone) if getattr(b, "_is_cn", False)] + [len(backbone) - 1]
 
+    # There are five non-convolutional backbone features in MobileNetV3.
+    # 0: Feature 0 is (16, 192, 256)
+    # 1: Feature 2 is (24, 96, 128)
+    # 2: Feature 4 is (40, 48, 64)
+    # 3: Feature 7 is (80, 24, 32).
+    # 4: Feature 13 is (160, 12, 16).
+    # 5: Feature 16 is (960, 12, 16).
+
+    # We'll use 2 as our skip connection so we can have 48x64
+    # mobile inference.
     skip1_pos = stage_indices[1]
-    skip2_pos = stage_indices[2]
-    aux_pos = stage_indices[-2]  # use C2 here which has output_stride = 8
-    out_pos = stage_indices[-1]  # use C5 which has output_stride = 16
+    skip2_pos = stage_indices[3]
+    aux_pos = stage_indices[4]
+    out_pos = stage_indices[5]
 
     return_layers = {
         str(skip1_pos): "skip1",
@@ -172,15 +180,15 @@ class WaSRTDecoder(nn.Module):
 
         self.arm1 = L.AttentionRefinementModule(960)
         self.arm2 = nn.Sequential(
-            L.AttentionRefinementModule(40, last_arm=True),
-            nn.Conv2d(40, 960, 1, 4) # Equalize number of features with ARM1
+            L.AttentionRefinementModule(80, last_arm=True),
+            nn.Conv2d(80, 960, 1, 2) # Equalize number of features with ARM1
         )
 
         # Temporal Context Module
         self.tcm = L.TemporalContextModule(960, hist_len=hist_len, sequential=sequential)
 
-        self.ffm = L.FeatureFusionModule(24, 960, 1024)
-        self.aspp = L.ASPPv2(1024, [6, 12, 18, 24], num_classes)
+        self.ffm = L.FeatureFusionModule(24, 960, 128)
+        self.aspp = L.ASPPv2(128, [6, 12, 18, 24], num_classes)
 
     def forward(self, x, x_hist=None):
         if x_hist is None: x_hist={'skip1':None, 'skip2': None, 'out': None}
