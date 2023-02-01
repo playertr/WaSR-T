@@ -25,22 +25,17 @@ def wasr_temporal_mobilenetv3(num_classes=3, pretrained=True, sequential=False, 
     # The first and last blocks are always included because they are the C0 (conv1) and Cn.
     backbone = backbone.features
     stage_indices = [0] + [i for i, b in enumerate(backbone) if getattr(b, "_is_cn", False)] + [len(backbone) - 1]
+
+    skip1_pos = stage_indices[1]
+    skip2_pos = stage_indices[2]
+    aux_pos = stage_indices[-2]  # use C2 here which has output_stride = 8
     out_pos = stage_indices[-1]  # use C5 which has output_stride = 16
-    out_inplanes = backbone[out_pos].out_channels
-
-    skip1_pos = stage_indices[-3]
-
-
-    skip2_pos = stage_indices[-2]
-
-    aux_pos = stage_indices[-4]  # use C2 here which has output_stride = 8
-    aux_inplanes = backbone[aux_pos].out_channels
 
     return_layers = {
-        str(out_pos): "out",
         str(skip1_pos): "skip1",
         str(skip2_pos): "skip2",
-        str(aux_pos): "aux"
+        str(aux_pos): "aux",
+        str(out_pos): "out"
     }
     return_layers[str(aux_pos)] = "aux"
 
@@ -131,18 +126,6 @@ class WaSRT(nn.Module):
     def forward_unrolled(self, x):
         features = self.backbone(x['image'])
 
-        # [(key, val.shape) for key, val in features.items()]
-        # [('skip1', torch.Size([2, 256, 96, 128])), 
-        # ('skip2', torch.Size([2, 512, 48, 64])), 
-        # ('aux', torch.Size([2, 1024, 48, 64])), 
-        # ('out', torch.Size([2, 2048, 48, 64]))]
-        
-        
-        # ('skip1', torch.Size([2, 160, 12, 16])), 
-        # ('skip2', torch.Size([2, 80, 24, 32])), 
-        # [('aux', torch.Size([2, 40, 48, 64])), 
-        # ('out', torch.Size([2, 960, 12, 16]))]
-
         extract_feats = ['out','skip1','skip2']
         feats_hist = {f:[] for f in extract_feats}
         hist_len = x['hist_images'].shape[1]
@@ -197,14 +180,14 @@ class WaSRTDecoder(nn.Module):
 
         self.arm1 = L.AttentionRefinementModule(960)
         self.arm2 = nn.Sequential(
-            L.AttentionRefinementModule(160, last_arm=True),
-            nn.Conv2d(160, 960, 1) # Equalize number of features with ARM1
+            L.AttentionRefinementModule(40, last_arm=True),
+            nn.Conv2d(40, 960, 1, 4) # Equalize number of features with ARM1
         )
 
         # Temporal Context Module
         self.tcm = L.TemporalContextModule(960, hist_len=hist_len, sequential=sequential)
 
-        self.ffm = L.FeatureFusionModule(80, 960, 1024)
+        self.ffm = L.FeatureFusionModule(24, 960, 1024)
         self.aspp = L.ASPPv2(1024, [6, 12, 18, 24], num_classes)
 
     def forward(self, x, x_hist=None):

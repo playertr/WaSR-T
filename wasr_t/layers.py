@@ -110,7 +110,7 @@ class FeatureFusionModule(nn.Module):
     def __init__(self, bg_channels, sm_channels, num_features):
         super(FeatureFusionModule, self).__init__()
 
-        self.upsampling = nn.UpsamplingNearest2d(scale_factor=2)
+        self.upsampling = nn.UpsamplingNearest2d(scale_factor=8)
         self.conv1 = nn.Conv2d(bg_channels + sm_channels, num_features, 3, padding=1)
         self.bn1 = nn.BatchNorm2d(num_features)
         self.relu = nn.ReLU(inplace=True)
