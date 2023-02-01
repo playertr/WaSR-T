@@ -76,7 +76,7 @@ def predict_sequence(predictor, sequence_dir, output_dir, size):
 
 
 def run_inference(args):
-    model = wasr_temporal_mobilenetv3(pretrained=False, hist_len=args.hist_len)
+    model = wasr_temporal_mobilenetv3(pretrained=False, hist_len=args.hist_len, sequential=True)
     state_dict = load_weights(args.weights)
     model.load_state_dict(state_dict)
     model = model.sequential() # Enable sequential mode
