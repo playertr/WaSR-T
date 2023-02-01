@@ -182,6 +182,8 @@ def train_wasrt(args):
     # Get model
     # model = wasr_temporal_resnet101(num_classes=args.num_classes, pretrained=args.pretrained, hist_len=args.hist_len, backbone_grad_steps=args.backbone_grad_steps)
     model = wasr_temporal_mobilenetv3(num_classes=args.num_classes, pretrained=args.pretrained, hist_len=args.hist_len, backbone_grad_steps=args.backbone_grad_steps, sequential=False)
+    
+    model = torch.compile(model, mode="max-autotune")
 
     if args.pretrained_weights is not None:
         print(f"Loading weights from: {args.pretrained_weights}")
