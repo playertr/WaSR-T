@@ -162,29 +162,22 @@ If you use this code, please cite our paper:
 
 You should use this fork of the repository ([https://github.com/playertr/WaSR-T](https://github.com/playertr/WaSR-T)) for compatibility with the MobileNetV3. I trained a network using an RTX2060 with the command 
 ```
- python train.py --train-config MaSTr1325/mastr1325_train.yaml \
-    --val-config MaSTr1325/mastr1325_val.yaml 
-    --validation \
-    --model-name my_wasr \
-    --batch-size 6 \
-    --epochs 100 \
+ python train.py \
+    --train-config MaSTr1325/mastr1325_train.yaml \
+    --val-config MaSTr1325/mastr1325_val.yaml \
+    --validation --model-name mastr1478_mobilenetv3_e \
+    --batch-size 6 --epochs 500 --patience 50 \
     --additional-train-config MaSTr153/mastr153_train.yaml
+
 ```
 Training 27 epochs (starting from the DeepLabs COCO pretraining) took a couple of hours on my RTX 2060.
 
 You can get the weights here:
-[https://drive.google.com/file/d/15PAkvkEovC9tpu24QZ0dEsbnxQx0dVwZ/view?usp=sharing](https://drive.google.com/file/d/15PAkvkEovC9tpu24QZ0dEsbnxQx0dVwZ/view?usp=sharing)
+[https://drive.google.com/file/d/19uASKkNV-IwsBNGR5WtAV_P--hyVPs03/view?usp=sharing](https://drive.google.com/file/d/19uASKkNV-IwsBNGR5WtAV_P--hyVPs03/view?usp=sharing)
 
-It looks like the network did pretty well, judging by the tensorboard output.
-![Tensorboard output.](figures/tensorboard.jpg)
+Inference took 156 MB of VRAM and was 48 FPS on my RTX2060, but was only 3.5 FPS on the Nano. It got 99.5% obstacle IOU on the validation set. The output on MaSTr1325 is below (it's wild to me that so little training data was needed! I wonder how well it will generalize to different lighting and weather conditions.)
 
-Inference took 1247 MB of VRAM and was 42 FPS on my RTX2060. The output on MaSTr1325 is below (it's wild to me that so little training data was needed! I wonder how well it will generalize to different lighting and weather conditions.).
-![](figures/wasrt_moilenetv3_1478.gif)
-
-<p align="center">
-    <img src="figures/wasrt_mobilenetv3.gif" alt="MobileNetV3 MaSTr1325 output.">
-    MobileNetV3 MaSTr1325 output.
-</p>
+![Inference output for MobileNet.](figures/wasrt_mobilenetv3_1478.gif)
 
 > **Note**: there might still be performance improvements to be had by retraining with different implementation. For instance, the designation of the `skip1` and `skip2` intermediate variables, and the resulting tensor sizes within the decoder module, might be mistaken.
 
