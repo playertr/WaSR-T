@@ -13,6 +13,7 @@ import wasr_t.layers as L
 
 model_urls = {
     'deeplabv3_resnet101_coco': 'https://download.pytorch.org/models/deeplabv3_resnet101_coco-586e9e4e.pth',
+    'lraspp_mobilenet_v3_large' : 'https://download.pytorch.org/models/lraspp_mobilenet_v3_large-d234d4ea.pth'
 }
 
 def wasr_temporal_mobilenetv3(num_classes=3, pretrained=True, sequential=False, backbone_grad_steps=2, hist_len=5):
@@ -48,6 +49,17 @@ def wasr_temporal_mobilenetv3(num_classes=3, pretrained=True, sequential=False, 
 
     model = WaSRT(backbone, decoder, backbone_grad_steps=backbone_grad_steps, sequential=sequential)
 
+    # Load pretrained DeeplabV3 weights (COCO)
+    if pretrained:
+        model_url = model_urls['lraspp_mobilenet_v3_large']
+        state_dict = load_state_dict_from_url(model_url, progress=True)
+
+        # Only load backbone weights, since decoder is entirely different
+        keys_to_remove = [key for key in state_dict.keys() if not key.startswith('backbone.')]
+        for key in keys_to_remove: del state_dict[key]
+
+        model.load_state_dict(state_dict, strict=False)
+
     return model
 
 def wasr_temporal_resnet101(num_classes=3, pretrained=True, sequential=False, backbone_grad_steps=2, hist_len=5):
@@ -67,7 +79,7 @@ def wasr_temporal_resnet101(num_classes=3, pretrained=True, sequential=False, ba
 
     # Load pretrained DeeplabV3 weights (COCO)
     if pretrained:
-        model_url = model_urls['deeplabv3_resnet101_coco']
+        model_url = model_urls['lraspp_mobilenet_v3_large']
         state_dict = load_state_dict_from_url(model_url, progress=True)
 
         # Only load backbone weights, since decoder is entirely different
