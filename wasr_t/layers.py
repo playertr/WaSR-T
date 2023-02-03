@@ -19,8 +19,9 @@ class TemporalContextModule(nn.Module):
     def __init__(self, in_features, hist_len=5, sequential=False):
         super(TemporalContextModule, self).__init__()
 
-        self.conv_in = nn.Conv2d(in_features, in_features//2, 1)
-        self.conv_agg = nn.Conv3d(in_features//2, in_features//2, (hist_len+1, 3, 3), padding=(0,1,1))
+        div = 8 # arbitrary factor to reduce latent dimension, resulting in quadratic reduction of 3D conv complexity
+        self.conv_in = nn.Conv2d(in_features, in_features//div, 1)
+        self.conv_agg = nn.Conv3d(in_features//div, in_features//div, (hist_len+1, 3, 3), padding=(0,1,1))
 
         self.hist_len = hist_len
         self._is_sequential = sequential
@@ -110,7 +111,7 @@ class FeatureFusionModule(nn.Module):
     def __init__(self, bg_channels, sm_channels, num_features):
         super(FeatureFusionModule, self).__init__()
 
-        self.upsampling = nn.UpsamplingNearest2d(scale_factor=8)
+        self.upsampling = nn.UpsamplingNearest2d(scale_factor=4)
         self.conv1 = nn.Conv2d(bg_channels + sm_channels, num_features, 3, padding=1)
         self.bn1 = nn.BatchNorm2d(num_features)
         self.relu = nn.ReLU(inplace=True)
