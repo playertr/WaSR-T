@@ -5,7 +5,7 @@ import contextlib
 import torch
 from torch import nn
 from torchvision.models.resnet import resnet101
-from torchvision.models.segmentation import lraspp_mobilenet_v3_large, LRASPP_MobileNet_V3_Large_Weights
+from torchvision.models.segmentation import lraspp_mobilenet_v3_large
 from torch.hub import load_state_dict_from_url
 
 from wasr_t.utils import IntermediateLayerGetter
@@ -19,7 +19,7 @@ model_urls = {
 def wasr_temporal_mobilenetv3(num_classes=3, pretrained=True, sequential=False, backbone_grad_steps=2, hist_len=5):
 
     # Pretrained LRASPP mobilenetv3 backbone
-    backbone = lraspp_mobilenet_v3_large(weights=LRASPP_MobileNet_V3_Large_Weights.DEFAULT)
+    backbone = lraspp_mobilenet_v3_large()
 
     # There are five non-convolutional backbone features in vanilla MobileNetV3.
     # 0: Feature 0 is (16, 192, 256)
