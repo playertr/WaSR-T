@@ -4,6 +4,7 @@ import torch
 import torchvision.transforms.functional as TF
 from torchvision.transforms import InterpolationMode, functional as TF
 import cv2
+import time
 
 from wasr_t.data.transforms import PytorchHubNormalization
 from wasr_t.wasr_t import  wasr_temporal_mobilenetv3
@@ -41,16 +42,17 @@ def get_arguments():
 
 def get_gstream_input() -> cv2.VideoCapture:
 
-    pipeline = f"v4l2src device=/dev/video0 ! video/x-raw,width=640,height=480,framerate={fps}/1 ! videoconvert ! videoscale ! video/x-raw,format=RGBx,width={width},height={height} ! appsink drop=true"
+    # pipeline = f"v4l2src device=/dev/video0 ! video/x-raw,width=640,height=480,framerate={fps}/1 ! videoconvert ! videoscale ! video/x-raw,format=BGR,width={width},height={height} ! appsink drop=true"
 
     # Testing on local video
-    # pipeline = f"filesrc location=MaSTr1325/images/wasrt_mobilenetv3_input.webm ! matroskademux ! vp9dec ! videoconvert ! videoscale ! video/x-raw,format=BGR,width={width},height={height} ! appsink drop=true"
+    pipeline = f"filesrc location=MaSTr1325/images/wasrt_mobilenetv3_input.webm ! matroskademux ! vp9dec ! videoconvert ! videoscale ! video/x-raw,format=BGR,width={width},height={height} ! appsink drop=true"
 
     cap = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
     return cap
 
 def get_gstream_output() -> cv2.VideoWriter:
-    pipeline_s = "appsrc ! autovideoconvert ! fpsdisplaysink sync=false"
+    # pipeline_s = "appsrc ! autovideoconvert ! fpsdisplaysink sync=false"
+    pipeline_s = "appsrc ! videoconvert ! x264enc ! flvmux ! filesink location=out.flv"
     out = cv2.VideoWriter(pipeline_s,cv2.CAP_GSTREAMER, 0, fps, (width, height), True) 
     return out
 
@@ -69,9 +71,15 @@ def get_model(args):
     if args.fp16:
         model = model.half()
 
-    device = torch.device('cpu') if args.gpus < 1 else torch.device('cuda')
+    device = torch.device('cpu') if args.gpus == 0 else torch.device('cuda')
     model = model.to(device)
     model.device = device
+
+    model.backbone = torch.jit.optimize_for_inference(torch.jit.script(model.backbone))
+    model.decoder.arm1 = torch.jit.optimize_for_inference(torch.jit.script(model.decoder.arm1))
+    model.decoder.arm2 = torch.jit.optimize_for_inference(torch.jit.script(model.decoder.arm2))
+    model.decoder.ffm = torch.jit.optimize_for_inference(torch.jit.script(model.decoder.ffm))
+    model.decoder.aspp = torch.jit.optimize_for_inference(torch.jit.script(model.decoder.aspp))
 
     return model
 
@@ -94,10 +102,6 @@ class Inferencer:
         frame = torch.Tensor(frame).to(self.model.device).to(self.dtype)
         frame = frame.unsqueeze(0)
 
-        # import matplotlib.pyplot as plt
-        # plt.imshow(frame.squeeze().permute(1,2,0).cpu().numpy())
-        # plt.show()
-
         with torch.inference_mode():
             probs = self.model({'image': frame})['out']
         
@@ -110,20 +114,29 @@ class Inferencer:
 def main():
 
     args = get_arguments()
-    print(args)
+    print(f"Got arguments: {args}")
 
+    print("Initializing GStreamer input.")
     cap = get_gstream_input()
+
+    print("Initializing GStreamer output.")
     out = get_gstream_output()
 
+    print("Instantiating and compiling model.")
     model = get_model(args)
     inferencer = Inferencer(model)
 
-    # import time
+    print("Beginning inference.")
+
+    tic = time.time()
     while cap.isOpened():
         ret, frame = cap.read()
         if ret:
             frame = inferencer.process_frame(frame)
             out.write(frame)
+            toc = time.time()
+            print(f"\rInstantaneous FPS {(1.0 / (toc - tic)) :.2f}.", end='')
+            tic = toc
         cv2.waitKey(1)
 
     # Release everything if job is finished
